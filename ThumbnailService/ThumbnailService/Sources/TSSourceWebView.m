@@ -8,9 +8,10 @@
 
 #import "TSSourceWebView.h"
 #import <UIKit/UIKit.h>
+#import <WebKit/WebKit.h>
 #import "NSString+Hash.h"
 
-@interface TSSourceWebView ()<UIWebViewDelegate>
+@interface TSSourceWebView ()<WKUIDelegate, WKNavigationDelegate>
 @property (atomic) BOOL loading;
 @end
 
@@ -19,7 +20,7 @@
     NSURL *resourceURL;
     NSString *identifier;
 
-    UIWebView *webView;
+    WKWebView *webView;
     dispatch_group_t webViewLoadingGroup;
     NSError *loadingError;
 }
@@ -67,10 +68,10 @@
     webViewSize.height = (webViewSize.width / size.width) * size.height;
 
     dispatch_sync(dispatch_get_main_queue(), ^{
-        webView = [[UIWebView alloc] initWithFrame:CGRectMake(0, 0, webViewSize.width, webViewSize.height)];
-        webView.scalesPageToFit = YES;
+        webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, webViewSize.width, webViewSize.height)];
         NSURLRequest *request = [NSURLRequest requestWithURL:resourceURL];
-        webView.delegate = self;
+        webView.UIDelegate = self;
+        webView.navigationDelegate = self;
         [webView loadRequest:request];
     });
 
@@ -109,17 +110,15 @@
 
 #pragma mark - WebView delegate
 
-- (void)webViewDidFinishLoad:(UIWebView *)__unused webView
-{
-    dispatch_group_leave(webViewLoadingGroup);
-    self.loading = NO;
+- (void)webView:(WKWebView *)__unused webView didFailNavigation:(WKNavigation *)__unused navigation withError:(NSError *)__unused error {
+        dispatch_group_leave(webViewLoadingGroup);
+        loadingError = error;
+        self.loading = NO;
 }
 
-- (void)webView:(UIWebView *)__unused webView didFailLoadWithError:(NSError *)error
-{
-    dispatch_group_leave(webViewLoadingGroup);
-    loadingError = error;
-    self.loading = NO;
+- (void)webView:(WKWebView *)__unused webView didFinishNavigation:(WKNavigation *)__unused navigation {
+        dispatch_group_leave(webViewLoadingGroup);
+        self.loading = NO;
 }
 
 @end
